@@ -255,6 +255,104 @@ For uploading files (maps, documents):
 3. Set up policies for file access
 4. Use `supabase.storage.from('project-files').upload()`
 
+## Feature 4 — Project Sources (Data Sources Library)
+
+> **When to run:** Defer this migration until Supabase is live so you can run it in the SQL Editor or CLI alongside enabling auth/RLS for the rest of the app.
+
+Use the following migration to create enums, the `project_sources` table, indexes, and the updated_at trigger used throughout the schema:
+
+```sql
+create extension if not exists "pgcrypto";
+
+-- enums (optional; if you prefer text columns, skip enums)
+do $$ begin
+  create type public.source_kind as enum (
+    'council_report',
+    'news',
+    'zoning_map',
+    'bylaw_policy',
+    'staff_report',
+    'minutes_agenda',
+    'market_data',
+    'other'
+  );
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type public.source_format as enum ('url','file');
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type public.ingestion_status as enum ('not_ingested','queued','done','error');
+exception when duplicate_object then null;
+end $$;
+
+create table if not exists public.project_sources (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+
+  kind public.source_kind not null default 'other',
+  format public.source_format not null default 'url',
+
+  title text not null,
+  url text null,
+  storage_path text null,          -- Supabase Storage object key if format=file
+  mime_type text null,
+  file_size_bytes bigint null,
+
+  publisher text null,             -- e.g., City, Publisher name
+  published_at date null,          -- for news / bylaw / staff report publication date
+
+  -- dev/council-specific metadata (optional but critical later)
+  meeting_date date null,
+  meeting_body text null,          -- e.g., "Regular Council", "Public Hearing", etc.
+  agenda_item text null,           -- agenda item label / section
+  project_ref text null,           -- e.g., "PROJ 21-065" or similar
+
+  tags text[] not null default '{}'::text[],
+  notes text null,
+
+  status text not null default 'active' check (status in ('active','archived')),
+
+  -- future AI pipeline fields (do not build ingestion now; just store)
+  ingestion public.ingestion_status not null default 'not_ingested',
+  content_text text null,          -- future extracted OCR/text
+  content_json jsonb not null default '{}'::jsonb, -- future structured extraction
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists project_sources_project_id_idx on public.project_sources(project_id);
+create index if not exists project_sources_kind_idx on public.project_sources(kind);
+create index if not exists project_sources_updated_at_idx on public.project_sources(updated_at desc);
+create index if not exists project_sources_tags_gin_idx on public.project_sources using gin(tags);
+
+-- updated_at trigger
+create or replace function public.set_updated_at()
+returns trigger language plpgsql as $$
+begin new.updated_at = now(); return new; end;
+$$;
+
+drop trigger if exists trg_project_sources_set_updated_at on public.project_sources;
+create trigger trg_project_sources_set_updated_at
+before update on public.project_sources
+for each row execute function public.set_updated_at();
+```
+
+### RLS Guidance
+
+- Keep RLS **off** for this table until Supabase auth is live and policies can follow the same pattern as the `projects` table.
+- Once auth is enabled, add owner-aware policies and re-enable RLS during the same deployment window.
+
+### Storage Bucket and Object Keys
+
+- Create a bucket named `project-sources`.
+- Store uploads using the convention `${projectId}/${sourceId}/${file.name}` to keep per-project partitions organized.
+- The bucket can be public or private; if private, serve files via signed URLs rather than direct public links.
+
 ### Realtime Subscriptions (Optional)
 
 For live updates across users:
