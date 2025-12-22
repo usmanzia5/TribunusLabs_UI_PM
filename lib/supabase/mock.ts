@@ -171,9 +171,64 @@ export async function deleteMockProject(id: string): Promise<boolean> {
 
 import { ProjectProfile, ProjectProfileData } from "@/lib/projects/profile-types";
 import { createDefaultProfile } from "@/lib/projects/profile-defaults";
+import type {
+  CreateSourceInput,
+  ListSourcesParams,
+  ProjectSource,
+  UpdateSourceInput,
+} from "@/lib/sources/types";
 
 // In-memory profile storage (Map for O(1) lookup)
 let mockProfiles: Map<string, ProjectProfile> = new Map();
+
+let mockSources: ProjectSource[] = [
+  {
+    id: "source-1",
+    project_id: "1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p",
+    kind: "council_report",
+    format: "url",
+    title: "Public Hearing Minutes - June 2024",
+    url: "https://example.com/council/minutes-june-2024",
+    storage_path: null,
+    mime_type: null,
+    file_size_bytes: null,
+    publisher: "City of Vancouver",
+    published_at: "2024-06-12",
+    meeting_date: "2024-06-10",
+    meeting_body: "Public Hearing",
+    agenda_item: "PH1 - Rezoning Application",
+    project_ref: "PROJ-21-065",
+    tags: ["council", "minutes"],
+    notes: "Key decision on height limits.",
+    status: "active",
+    ingestion: "not_ingested",
+    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "source-2",
+    project_id: "2b3c4d5e-6f7g-8h9i-0j1k-2l3m4n5o6p7q",
+    kind: "news",
+    format: "file",
+    title: "Business Journal Article",
+    url: null,
+    storage_path: "2b3c4d5e-6f7g-8h9i-0j1k-2l3m4n5o6p7q/source-2/article.pdf",
+    mime_type: "application/pdf",
+    file_size_bytes: 2400000,
+    publisher: "Portland Business Journal",
+    published_at: "2024-03-01",
+    meeting_date: null,
+    meeting_body: null,
+    agenda_item: null,
+    project_ref: null,
+    tags: ["news", "market"],
+    notes: null,
+    status: "active",
+    ingestion: "not_ingested",
+    created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+];
 
 /**
  * Get project profile by project ID
@@ -219,4 +274,158 @@ export async function updateMockProjectProfile(
 
   mockProfiles.set(projectId, updated);
   return updated;
+}
+
+// ============================================================================
+// Project Sources Mock Storage
+// ============================================================================
+
+function matchesQuery(text: string | null, query: string) {
+  return text?.toLowerCase().includes(query.toLowerCase());
+}
+
+export async function getMockSources(
+  projectId: string,
+  params: ListSourcesParams = {}
+): Promise<ProjectSource[]> {
+  await delay();
+
+  const { q, kind = "all", sort = "updated_desc", status = "active" } = params;
+
+  let results = mockSources.filter((s) => s.project_id === projectId);
+
+  if (status !== "all") {
+    results = results.filter((s) => s.status === status);
+  }
+
+  if (kind !== "all") {
+    results = results.filter((s) => s.kind === kind);
+  }
+
+  if (q) {
+    results = results.filter(
+      (s) =>
+        matchesQuery(s.title, q) ||
+        matchesQuery(s.publisher, q) ||
+        matchesQuery(s.notes, q) ||
+        matchesQuery(s.url, q) ||
+        matchesQuery(s.project_ref, q)
+    );
+  }
+
+  results = [...results].sort((a, b) => {
+    switch (sort) {
+      case "created_desc":
+        return (
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+      case "title_asc":
+        return a.title.localeCompare(b.title);
+      case "published_desc":
+        return (
+          new Date(b.published_at || 0).getTime() -
+          new Date(a.published_at || 0).getTime()
+        );
+      case "meeting_desc":
+        return (
+          new Date(b.meeting_date || 0).getTime() -
+          new Date(a.meeting_date || 0).getTime()
+        );
+      default:
+        return (
+          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        );
+    }
+  });
+
+  return results;
+}
+
+export async function createMockSource(
+  projectId: string,
+  input: CreateSourceInput
+): Promise<ProjectSource> {
+  await delay();
+
+  const now = new Date().toISOString();
+  const id = generateId();
+
+  const baseFields = {
+    id,
+    project_id: projectId,
+    url: null,
+    storage_path: null,
+    mime_type: null,
+    file_size_bytes: null,
+    publisher: input.publisher || null,
+    published_at: input.published_at || null,
+    meeting_date: input.meeting_date || null,
+    meeting_body: input.meeting_body || null,
+    agenda_item: input.agenda_item || null,
+    project_ref: input.project_ref || null,
+    tags: input.tags || [],
+    notes: input.notes || null,
+    status: "active" as const,
+    ingestion: "not_ingested" as const,
+    created_at: now,
+    updated_at: now,
+  };
+
+  const source: ProjectSource =
+    input.format === "url"
+      ? {
+          ...baseFields,
+          kind: input.kind,
+          format: "url",
+          title: input.title,
+          url: input.url,
+        }
+      : {
+          ...baseFields,
+          kind: input.kind,
+          format: "file",
+          title: input.title,
+          storage_path: input.storage_path,
+          mime_type: input.mime_type || null,
+          file_size_bytes: input.file_size_bytes || null,
+        };
+
+  mockSources.unshift(source);
+  return source;
+}
+
+export async function updateMockSource(
+  projectId: string,
+  input: UpdateSourceInput
+): Promise<ProjectSource | null> {
+  await delay();
+
+  const index = mockSources.findIndex(
+    (s) => s.project_id === projectId && s.id === input.id
+  );
+  if (index === -1) return null;
+
+  mockSources[index] = {
+    ...mockSources[index],
+    ...input,
+    tags: input.tags ?? mockSources[index].tags,
+    updated_at: new Date().toISOString(),
+  };
+
+  return mockSources[index];
+}
+
+export async function deleteMockSource(
+  projectId: string,
+  sourceId: string
+): Promise<boolean> {
+  await delay();
+
+  const index = mockSources.findIndex(
+    (s) => s.project_id === projectId && s.id === sourceId
+  );
+  if (index === -1) return false;
+
+  mockSources.splice(index, 1);
+  return true;
 }
