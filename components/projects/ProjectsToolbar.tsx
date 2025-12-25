@@ -34,6 +34,10 @@ export function ProjectsToolbar({ onCreateClick }: ProjectsToolbarProps) {
   // Local state for search input (for debouncing)
   const [searchValue, setSearchValue] = useState(currentSearch);
 
+  useEffect(() => {
+    setSearchValue(currentSearch);
+  }, [currentSearch]);
+
   // Debounced search update
   useEffect(() => {
     const timer = setTimeout(() => {

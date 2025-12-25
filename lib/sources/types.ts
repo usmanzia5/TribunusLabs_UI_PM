@@ -1,22 +1,14 @@
-export enum SourceKind {
-  CouncilReport = "council_report",
-  News = "news",
-  ZoningMap = "zoning_map",
-  BylawPolicy = "bylaw_policy",
-  StaffReport = "staff_report",
-  MinutesAgenda = "minutes_agenda",
-  MarketData = "market_data",
-  Other = "other",
-}
+export type SourceKind =
+  | "council_report"
+  | "news"
+  | "zoning_map"
+  | "bylaw_policy"
+  | "staff_report"
+  | "minutes_agenda"
+  | "market_data"
+  | "other";
 
-export enum SourceFormat {
-  Url = "url",
-  File = "file",
-}
-
-export type SourceStatus = "active" | "archived";
-
-export type SourceIngestionStatus = "not_ingested" | "queued" | "done" | "error";
+export type SourceFormat = "url" | "file";
 
 export type ProjectSource = {
   id: string;
@@ -36,8 +28,8 @@ export type ProjectSource = {
   project_ref: string | null;
   tags: string[];
   notes: string | null;
-  status: SourceStatus;
-  ingestion: SourceIngestionStatus;
+  status: "active" | "archived";
+  ingestion: "not_ingested" | "queued" | "done" | "error";
   created_at: string;
   updated_at: string;
 };
@@ -45,7 +37,7 @@ export type ProjectSource = {
 export type CreateSourceInput =
   | {
       kind: SourceKind;
-      format: SourceFormat.Url;
+      format: "url";
       title: string;
       url: string;
       publisher?: string | null;
@@ -59,7 +51,7 @@ export type CreateSourceInput =
     }
   | {
       kind: SourceKind;
-      format: SourceFormat.File;
+      format: "file";
       title: string;
       storage_path: string;
       mime_type?: string | null;
@@ -75,7 +67,10 @@ export type CreateSourceInput =
     };
 
 export type UpdateSourceInput = Partial<
-  Omit<ProjectSource, "id" | "project_id" | "created_at" | "updated_at">
+  Omit<
+    ProjectSource,
+    "id" | "project_id" | "created_at" | "updated_at" | "format"
+  >
 > & { id: string };
 
 export type ListSourcesParams = {
@@ -87,5 +82,5 @@ export type ListSourcesParams = {
     | "title_asc"
     | "published_desc"
     | "meeting_desc";
-  status?: SourceStatus | "all";
+  status?: "active" | "archived" | "all";
 };

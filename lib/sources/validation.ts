@@ -1,133 +1,115 @@
 import { z } from "zod";
+import type { ListSourcesParams, SourceKind } from "./types";
 
-import { SourceFormat, SourceKind } from "./types";
-
-const titleSchema = z
-  .string()
-  .trim()
-  .min(2, "Title must be at least 2 characters")
-  .max(120, "Title must be at most 120 characters");
-
-const optionalTextSchema = z
-  .union([z.string(), z.null()])
-  .optional()
-  .transform((value) => {
-    if (value === undefined) return undefined;
-    if (value === null) return null;
-    const trimmed = value.trim();
-    return trimmed.length ? trimmed : null;
-  });
+const kindValues: readonly [SourceKind, ...SourceKind[]] = [
+  "council_report",
+  "news",
+  "zoning_map",
+  "bylaw_policy",
+  "staff_report",
+  "minutes_agenda",
+  "market_data",
+  "other",
+];
 
 const dateSchema = z
-  .union([z.string(), z.null(), z.undefined()])
-  .transform((value) => {
-    if (value === undefined || value === null) return null;
-    const trimmed = value.trim();
-    return trimmed.length ? trimmed : null;
-  })
-  .refine(
-    (value) => value === null || /^\d{4}-\d{2}-\d{2}$/.test(value),
-    "Date must be in YYYY-MM-DD format"
-  );
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD format")
+  .nullable()
+  .optional();
 
-export const tagsInputSchema = z
-  .union([z.string(), z.array(z.string())])
-  .optional()
-  .transform((value) => {
-    if (!value) return [] as string[];
+const tagSchema = z
+  .array(z.string().trim().min(1).max(32))
+  .max(20)
+  .default([]);
 
-    const tags = (Array.isArray(value) ? value : value.split(","))
-      .map((tag) => tag.trim())
-      .filter((tag) => tag.length > 0);
-
-    return tags;
-  })
-  .refine((tags) => tags.length <= 20, "You can add up to 20 tags")
-  .refine(
-    (tags) => tags.every((tag) => tag.length <= 32),
-    "Each tag must be 32 characters or fewer"
-  );
-
-const baseMetadataSchema = z.object({
-  kind: z.nativeEnum(SourceKind),
-  title: titleSchema,
-  publisher: optionalTextSchema,
+const baseSourceSchema = z.object({
+  kind: z.enum(kindValues),
+  title: z.string().trim().min(2).max(120),
+  publisher: z.string().trim().max(120).nullable().optional(),
   published_at: dateSchema,
   meeting_date: dateSchema,
-  meeting_body: optionalTextSchema,
-  agenda_item: optionalTextSchema,
-  project_ref: optionalTextSchema,
-  tags: tagsInputSchema,
-  notes: optionalTextSchema,
-});
-
-const fileFieldsSchema = z.object({
-  format: z.literal(SourceFormat.File),
-  storage_path: z.string().trim().min(1, "File storage path is required"),
-  mime_type: optionalTextSchema,
-  file_size_bytes: z.number().int().nonnegative().optional().nullable(),
-  url: z.null().optional(),
-});
-
-const urlFieldsSchema = z.object({
-  format: z.literal(SourceFormat.Url),
-  url: z.string().trim().url("Enter a valid URL"),
-  storage_path: z.null().optional(),
-  mime_type: z.null().optional(),
-  file_size_bytes: z.null().optional(),
+  meeting_body: z.string().trim().max(120).nullable().optional(),
+  agenda_item: z.string().trim().max(120).nullable().optional(),
+  project_ref: z.string().trim().max(120).nullable().optional(),
+  tags: tagSchema,
+  notes: z.string().trim().max(2000).nullable().optional(),
+  status: z.enum(["active", "archived"]).optional(),
+  ingestion: z
+    .enum(["not_ingested", "queued", "done", "error"])
+    .optional(),
 });
 
 export const createSourceSchema = z.discriminatedUnion("format", [
-  baseMetadataSchema.merge(urlFieldsSchema),
-  baseMetadataSchema.merge(fileFieldsSchema),
+  z
+    .object({
+      format: z.literal("url"),
+      url: z.string().url("Enter a valid URL"),
+    })
+    .merge(baseSourceSchema),
+  z
+    .object({
+      format: z.literal("file"),
+      storage_path: z.string().min(1, "File path is required"),
+      mime_type: z.string().trim().max(200).nullable().optional(),
+      file_size_bytes: z.number().int().positive().nullable().optional(),
+    })
+    .merge(baseSourceSchema),
 ]);
 
-export type ValidatedCreateSource = z.infer<typeof createSourceSchema>;
+export const updateSourceSchema = z
+  .object({
+    id: z.string().min(1, "Source ID is required"),
+  })
+  .merge(
+    baseSourceSchema
+      .partial()
+      .extend({
+        url: z.string().url("Enter a valid URL").nullable().optional(),
+        storage_path: z.string().min(1).nullable().optional(),
+        file_size_bytes: z.number().int().positive().nullable().optional(),
+        mime_type: z.string().trim().max(200).nullable().optional(),
+      })
+      .partial()
+  );
 
-const updateBaseSchema = z.object({
-  id: z.string().min(1, "Source ID is required"),
-  kind: z.nativeEnum(SourceKind).optional(),
-  title: titleSchema.optional(),
-  publisher: optionalTextSchema,
-  published_at: dateSchema,
-  meeting_date: dateSchema,
-  meeting_body: optionalTextSchema,
-  agenda_item: optionalTextSchema,
-  project_ref: optionalTextSchema,
-  tags: tagsInputSchema,
-  notes: optionalTextSchema,
-  status: z.enum(["active", "archived"]).optional(),
-  ingestion: z.enum(["not_ingested", "queued", "done", "error"]).optional(),
-});
+export function parseTags(input?: string): string[] {
+  if (!input) return [];
+  const tags = input
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+  return Array.from(new Set(tags)).slice(0, 20);
+}
 
-const updateUrlFieldsSchema = z.object({
-  format: z.literal(SourceFormat.Url),
-  url: z.string().trim().url("Enter a valid URL").optional(),
-  storage_path: z.null().optional(),
-  mime_type: z.null().optional(),
-  file_size_bytes: z.null().optional(),
-});
+export function sanitizeListParams(
+  params: Partial<ListSourcesParams>
+): ListSourcesParams {
+  const allowedSorts: ListSourcesParams["sort"][] = [
+    "updated_desc",
+    "created_desc",
+    "title_asc",
+    "published_desc",
+    "meeting_desc",
+  ];
 
-const updateFileFieldsSchema = z.object({
-  format: z.literal(SourceFormat.File),
-  storage_path: z.string().trim().min(1, "File storage path is required").optional(),
-  mime_type: optionalTextSchema,
-  file_size_bytes: z.number().int().nonnegative().optional().nullable(),
-  url: z.null().optional(),
-});
+  const kind = kindValues.includes(params.kind as SourceKind)
+    ? (params.kind as ListSourcesParams["kind"])
+    : "all";
 
-const updateNeutralSchema = z.object({
-  format: z.nativeEnum(SourceFormat).optional(),
-  url: z.string().trim().url("Enter a valid URL").optional().nullable(),
-  storage_path: z.string().trim().min(1, "File storage path is required").optional().nullable(),
-  mime_type: optionalTextSchema,
-  file_size_bytes: z.number().int().nonnegative().optional().nullable(),
-});
+  const status: ListSourcesParams["status"] =
+    params.status === "archived" || params.status === "all"
+      ? params.status
+      : "active";
 
-export const updateSourceSchema = z.union([
-  updateBaseSchema.merge(updateUrlFieldsSchema),
-  updateBaseSchema.merge(updateFileFieldsSchema),
-  updateBaseSchema.merge(updateNeutralSchema),
-]);
+  const sort = allowedSorts.includes(params.sort as ListSourcesParams["sort"])
+    ? (params.sort as ListSourcesParams["sort"])
+    : "updated_desc";
 
-export type ValidatedUpdateSource = z.infer<typeof updateSourceSchema>;
+  return {
+    q: params.q || undefined,
+    kind,
+    status,
+    sort,
+  };
+}

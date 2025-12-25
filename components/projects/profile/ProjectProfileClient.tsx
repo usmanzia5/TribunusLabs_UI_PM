@@ -110,6 +110,7 @@ export function ProjectProfileClient({
   return (
     <div className="space-y-6">
       <ProfileHeader
+        projectId={initialProject.id}
         projectName={initialProject.name}
         isDirty={isDirty}
         isPending={isPending}

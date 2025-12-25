@@ -1,10 +1,8 @@
-import {
-  SourceFormat,
-  SourceKind,
-  type CreateSourceInput,
-  type ListSourcesParams,
-  type ProjectSource,
-  type UpdateSourceInput,
+import type {
+  CreateSourceInput,
+  ListSourcesParams,
+  ProjectSource,
+  UpdateSourceInput,
 } from "@/lib/sources/types";
 import { ProjectProfile, ProjectProfileData } from "@/lib/projects/profile-types";
 import { createDefaultProfile } from "@/lib/projects/profile-defaults";
@@ -237,8 +235,8 @@ let mockSources: ProjectSource[] = [
   {
     id: "source-1",
     project_id: mockProjects[0].id,
-    kind: SourceKind.CouncilReport,
-    format: SourceFormat.Url,
+    kind: "council_report",
+    format: "url",
     title: "Council report: Rezoning approval",
     url: "https://city.example.org/reports/rezoning-123-main",
     storage_path: null,
@@ -260,8 +258,8 @@ let mockSources: ProjectSource[] = [
   {
     id: "source-2",
     project_id: mockProjects[0].id,
-    kind: SourceKind.News,
-    format: SourceFormat.File,
+    kind: "news",
+    format: "file",
     title: "Local paper coverage",
     url: null,
     storage_path: `${mockProjects[0].id}/source-2/story.pdf`,
@@ -283,8 +281,8 @@ let mockSources: ProjectSource[] = [
   {
     id: "source-3",
     project_id: mockProjects[1].id,
-    kind: SourceKind.ZoningMap,
-    format: SourceFormat.Url,
+    kind: "zoning_map",
+    format: "url",
     title: "Zoning map - waterfront",
     url: "https://planning.example.org/maps/waterfront-zoning",
     storage_path: null,
@@ -398,11 +396,11 @@ export async function createMockSource(
     kind: input.kind,
     format: input.format,
     title: input.title,
-    url: input.format === SourceFormat.Url ? input.url : null,
-    storage_path: input.format === SourceFormat.File ? input.storage_path : null,
-    mime_type: input.format === SourceFormat.File ? input.mime_type ?? null : null,
+    url: input.format === "url" ? input.url : null,
+    storage_path: input.format === "file" ? input.storage_path : null,
+    mime_type: input.format === "file" ? input.mime_type ?? null : null,
     file_size_bytes:
-      input.format === SourceFormat.File ? input.file_size_bytes ?? null : null,
+      input.format === "file" ? input.file_size_bytes ?? null : null,
     publisher: input.publisher ?? null,
     published_at: input.published_at ?? null,
     meeting_date: input.meeting_date ?? null,
@@ -440,15 +438,15 @@ export async function updateMockSource(
     ...existing,
     ...input,
     format: nextFormat,
-    url: nextFormat === SourceFormat.Url ? input.url ?? existing.url : null,
+    url: nextFormat === "url" ? input.url ?? existing.url : null,
     storage_path:
-      nextFormat === SourceFormat.File
+      nextFormat === "file"
         ? input.storage_path ?? existing.storage_path
         : null,
     mime_type:
-      nextFormat === SourceFormat.File ? input.mime_type ?? existing.mime_type : null,
+      nextFormat === "file" ? input.mime_type ?? existing.mime_type : null,
     file_size_bytes:
-      nextFormat === SourceFormat.File
+      nextFormat === "file"
         ? input.file_size_bytes ?? existing.file_size_bytes
         : null,
     publisher: input.publisher ?? existing.publisher,

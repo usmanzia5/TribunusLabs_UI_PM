@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ProfileHeaderProps {
+  projectId: string;
   projectName: string;
   isDirty: boolean;
   isPending: boolean;
@@ -16,6 +17,7 @@ interface ProfileHeaderProps {
  * Profile page header with breadcrumb and action buttons
  */
 export function ProfileHeader({
+  projectId,
   projectName,
   isDirty,
   isPending,
@@ -38,6 +40,9 @@ export function ProfileHeader({
 
       {/* Action Buttons */}
       <div className="flex items-center gap-2">
+        <Button asChild variant="outline" className="rounded-sm">
+          <Link href={`/projects/${projectId}/sources`}>Data Sources</Link>
+        </Button>
         <Button variant="outline" onClick={onCancel} disabled={!isDirty || isPending}>
           Cancel
         </Button>

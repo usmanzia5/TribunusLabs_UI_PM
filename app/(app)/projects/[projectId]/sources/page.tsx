@@ -5,13 +5,10 @@ import type { ListSourcesParams } from "@/lib/sources/types";
 import { ProjectSourcesClient } from "@/components/sources/ProjectSourcesClient";
 
 interface ProjectSourcesPageProps {
-  params: Promise<{ projectId: string }>;
-  searchParams: Promise<{
-    q?: string;
-    kind?: ListSourcesParams["kind"];
-    status?: ListSourcesParams["status"];
-    sort?: ListSourcesParams["sort"];
+  params: Promise<{
+    projectId: string;
   }>;
+  searchParams: Promise<Partial<ListSourcesParams>>;
 }
 
 export default async function ProjectSourcesPage({
@@ -19,7 +16,7 @@ export default async function ProjectSourcesPage({
   searchParams,
 }: ProjectSourcesPageProps) {
   const { projectId } = await params;
-  const queryParams = await searchParams;
+  const filters = await searchParams;
 
   const project = await getProjectById(projectId);
 
@@ -27,25 +24,22 @@ export default async function ProjectSourcesPage({
     notFound();
   }
 
-  const {
-    q = "",
-    kind = "all",
-    status = "active",
-    sort = "updated_desc",
-  } = queryParams;
+  const parsedParams: ListSourcesParams = {
+    q: filters?.q,
+    kind: (filters?.kind as ListSourcesParams["kind"]) || "all",
+    status: (filters?.status as ListSourcesParams["status"]) || "active",
+    sort: (filters?.sort as ListSourcesParams["sort"]) || "updated_desc",
+  };
 
-  const sources = await getProjectSources(projectId, {
-    q: q || undefined,
-    kind,
-    status,
-    sort,
-  });
+  const sources = await getProjectSources(projectId, parsedParams);
 
   return (
-    <ProjectSourcesClient
-      projectId={projectId}
-      project={project}
-      sources={sources}
-    />
+    <div className="container mx-auto max-w-7xl px-4 py-6">
+      <ProjectSourcesClient
+        project={project}
+        sources={sources}
+        params={parsedParams}
+      />
+    </div>
   );
 }

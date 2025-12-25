@@ -1,15 +1,21 @@
+/** @format */
 "use server";
 
 import { revalidatePath } from "next/cache";
-
-import type { CreateSourceInput, ProjectSource, UpdateSourceInput } from "./types";
-import { createSourceSchema, updateSourceSchema } from "./validation";
+import {
+  createSourceSchema,
+  updateSourceSchema,
+} from "./validation";
+import type {
+  CreateSourceInput,
+  ProjectSource,
+  UpdateSourceInput,
+} from "./types";
 import {
   createMockSource,
-  deleteMockSource,
-  getMockSourceById,
   updateMockSource,
-} from "@/lib/supabase/mock";
+  deleteMockSource,
+} from "./mock";
 // SUPABASE INTEGRATION: Uncomment when ready
 // import { createServerClient } from "@/lib/supabase/server";
 
@@ -26,18 +32,22 @@ export async function createSource(
     // SUPABASE INTEGRATION: Uncomment when ready
     /*
     const supabase = await createServerClient();
-    const { data: source, error } = await supabase
+
+    const { data, error } = await supabase
       .from("project_sources")
-      .insert([{ ...validated, project_id: projectId, ingestion: "not_ingested" }])
+      .insert([{ project_id: projectId, ...validated }])
       .select()
       .single();
 
     if (error) {
       return { error: "Failed to create source" };
     }
+
+    const source = data as ProjectSource;
     */
 
     revalidatePath(`/projects/${projectId}/sources`);
+
     return { source };
   } catch (error) {
     if (error instanceof Error) {
@@ -55,10 +65,7 @@ export async function updateSource(
     const validated = updateSourceSchema.parse(input);
 
     // MOCK DATA (temporary)
-    const source = await updateMockSource(projectId, {
-      ...validated,
-      ingestion: "not_ingested",
-    });
+    const source = await updateMockSource(projectId, validated);
 
     if (!source) {
       return { error: "Source not found" };
@@ -67,11 +74,12 @@ export async function updateSource(
     // SUPABASE INTEGRATION: Uncomment when ready
     /*
     const supabase = await createServerClient();
-    const { data: source, error } = await supabase
+
+    const { data, error } = await supabase
       .from("project_sources")
-      .update({ ...validated, ingestion: "not_ingested" })
-      .eq("project_id", projectId)
+      .update(validated)
       .eq("id", validated.id)
+      .eq("project_id", projectId)
       .select()
       .single();
 
@@ -79,12 +87,11 @@ export async function updateSource(
       return { error: "Failed to update source" };
     }
 
-    if (!source) {
-      return { error: "Source not found" };
-    }
+    const source = data as ProjectSource;
     */
 
     revalidatePath(`/projects/${projectId}/sources`);
+
     return { source };
   } catch (error) {
     if (error instanceof Error) {
@@ -99,8 +106,6 @@ export async function deleteSource(
   sourceId: string
 ): Promise<{ ok?: true; error?: string }> {
   try {
-    const existing = await getMockSourceById(projectId, sourceId);
-
     // MOCK DATA (temporary)
     const success = await deleteMockSource(projectId, sourceId);
 
@@ -108,27 +113,15 @@ export async function deleteSource(
       return { error: "Source not found" };
     }
 
-    if (existing?.storage_path) {
-      // Best-effort storage cleanup (non-blocking)
-      try {
-        // SUPABASE INTEGRATION: Uncomment when ready
-        /*
-        const supabase = await createServerClient();
-        await supabase.storage.from("project-sources").remove([existing.storage_path]);
-        */
-      } catch (storageError) {
-        console.warn("Failed to delete storage object (non-blocking)", storageError);
-      }
-    }
-
     // SUPABASE INTEGRATION: Uncomment when ready
     /*
     const supabase = await createServerClient();
+
     const { error } = await supabase
       .from("project_sources")
       .delete()
-      .eq("project_id", projectId)
-      .eq("id", sourceId);
+      .eq("id", sourceId)
+      .eq("project_id", projectId);
 
     if (error) {
       return { error: "Failed to delete source" };
@@ -136,6 +129,7 @@ export async function deleteSource(
     */
 
     revalidatePath(`/projects/${projectId}/sources`);
+
     return { ok: true };
   } catch (error) {
     if (error instanceof Error) {

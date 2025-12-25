@@ -1,61 +1,41 @@
-import { FileQuestion, Plus } from "lucide-react";
+import { FilePlus2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cn";
 
 interface ProjectSourcesEmptyStateProps {
-  isFiltered?: boolean;
-  onAddSourceClick?: () => void;
+  statusFilter: "active" | "archived" | "all";
+  onAddSource: () => void;
 }
 
-/**
- * Empty state for project sources.
- * Shows different messaging for filter results vs. brand new library.
- */
 export function ProjectSourcesEmptyState({
-  isFiltered = false,
-  onAddSourceClick,
+  statusFilter,
+  onAddSource,
 }: ProjectSourcesEmptyStateProps) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 px-6 bg-surface rounded-md border border-border">
-      <div
-        className={cn(
-          "w-16 h-16 rounded-md mb-4",
-          "bg-surface-2 flex items-center justify-center"
-        )}
-      >
-        <FileQuestion className="w-8 h-8 text-text-3" />
-      </div>
+  const headline =
+    statusFilter === "archived"
+      ? "No archived sources"
+      : "No sources yet";
 
-      {isFiltered ? (
-        <>
-          <h3 className="text-base font-semibold text-text mb-1">
-            No sources match these filters
-          </h3>
-          <p className="text-sm text-text-2 mb-4 text-center max-w-sm">
-            Try adjusting your search, type, or status filters to see more results.
-          </p>
-        </>
-      ) : (
-        <>
-          <h3 className="text-base font-semibold text-text mb-1">
-            No sources yet
-          </h3>
-          <p className="text-sm text-text-2 mb-4 text-center max-w-sm">
-            Add council reports, news links, zoning maps, or policy documents to build
-            project context.
-          </p>
-          <Button
-            onClick={onAddSourceClick}
-            disabled={!onAddSourceClick}
-            className={cn(
-              "bg-accent hover:bg-accent-hover text-white",
-              "rounded-sm px-4 h-10"
-            )}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Source
-          </Button>
-        </>
+  const subhead =
+    statusFilter === "archived"
+      ? "Unarchive a source from the Active view to see it here."
+      : "Add council reports, news, maps, or policies to build project context.";
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 rounded-md border border-border bg-white px-6 py-12 text-center shadow-sm">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-2 text-text-2">
+        <FilePlus2 className="h-6 w-6" />
+      </div>
+      <div>
+        <h3 className="text-lg font-semibold text-text">{headline}</h3>
+        <p className="text-sm text-text-3">{subhead}</p>
+      </div>
+      {statusFilter !== "archived" && (
+        <Button
+          onClick={onAddSource}
+          className="bg-accent text-white hover:bg-accent-hover"
+        >
+          Add Source
+        </Button>
       )}
     </div>
   );
