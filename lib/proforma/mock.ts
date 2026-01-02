@@ -74,6 +74,7 @@ export function seedFromProfile(
     program: {
       units,
       saleableAreaSqft,
+      netToGrossPct: 80, // Default value for seeded projects
     },
   };
 }

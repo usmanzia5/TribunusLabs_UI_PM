@@ -19,8 +19,24 @@ export async function saveProForma(
   assumptions: ProFormaAssumptions
 ): Promise<SaveProFormaResult> {
   try {
+    // Normalize assumptions before saving
+    const normalized = { ...assumptions };
+
+    // Recompute totalMonths from phases
+    if (normalized.timeline.phases) {
+      const { entitlementMonths, constructionMonths, salesLeaseMonths } = normalized.timeline.phases;
+      if (entitlementMonths !== null && constructionMonths !== null && salesLeaseMonths !== null) {
+        normalized.timeline.totalMonths = entitlementMonths + constructionMonths + salesLeaseMonths;
+      }
+    }
+
+    // Strip deprecated fields (defensive - validation should already prevent these)
+    if ((normalized.financing as any).interestCoverageFactor !== undefined) {
+      delete (normalized.financing as any).interestCoverageFactor;
+    }
+
     // Validate input
-    const validated = saveProFormaSchema.parse({ projectId, assumptions });
+    const validated = saveProFormaSchema.parse({ projectId, assumptions: normalized });
 
     // Save to mock layer
     const proforma = await saveMockProForma(

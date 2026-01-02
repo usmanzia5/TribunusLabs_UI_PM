@@ -2,18 +2,27 @@ import type { ProFormaAssumptions } from "./types";
 
 // Default assumptions with all numeric fields as null and scenario deltas as 0
 export const defaultAssumptions: ProFormaAssumptions = {
+  meta: {
+    assetType: 'TOWNHOME',
+    monetization: 'FOR_SALE',
+  },
   program: {
     units: null,
     saleableAreaSqft: null,
+    netToGrossPct: 80, // Default for multifamily modeling
   },
   acquisition: {
     landPrice: null,
     closingCostsPct: null,
   },
-  revenue: {
+  revenueSale: {
     salePricePerSqft: null,
     otherRevenue: null,
     salesCommissionPct: null,
+  },
+  revenueRent: {
+    avgRentPerUnitMonthly: null,
+    vacancyPct: null,
   },
   costs: {
     hardCostPerSqft: null,
@@ -26,10 +35,18 @@ export const defaultAssumptions: ProFormaAssumptions = {
     loanToCostPct: null,
     interestRatePct: null,
     lenderFeePct: null,
-    interestCoverageFactor: 0.5, // Default to 50% average outstanding
   },
   timeline: {
-    totalMonths: null,
+    phases: {
+      entitlementMonths: 6,
+      constructionMonths: 18,
+      salesLeaseMonths: 6,
+    },
+    totalMonths: 30, // Auto-sum of phases
+    autoCalcSalesMonths: true, // Default ON per user decision
+  },
+  absorption: {
+    unitsPerMonth: 4, // Typical absorption rate
   },
   scenario: {
     deltaSalePricePerSqftPct: 0,

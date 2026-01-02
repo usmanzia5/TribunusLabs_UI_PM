@@ -7,15 +7,95 @@ import {
 import { defaultAssumptions } from "./defaults";
 
 /**
+ * Migrate legacy pro forma assumptions to current schema.
+ * Handles backward compatibility for data saved before Phase 1 upgrade.
+ */
+function migrateLegacyAssumptions(assumptions: any): ProFormaAssumptions {
+  const migrated = { ...assumptions };
+
+  // Migrate timeline.totalMonths → phases (25/60/15 split)
+  if (migrated.timeline?.totalMonths && !migrated.timeline?.phases) {
+    const total = migrated.timeline.totalMonths;
+    const entitlement = Math.round(total * 0.25);
+    const construction = Math.round(total * 0.60);
+    const salesLease = total - entitlement - construction;
+
+    migrated.timeline = {
+      phases: {
+        entitlementMonths: entitlement,
+        constructionMonths: construction,
+        salesLeaseMonths: salesLease,
+      },
+      totalMonths: total,
+      autoCalcSalesMonths: false, // Default off for migrated data
+    };
+  }
+
+  // Migrate revenue → revenueSale
+  if (migrated.revenue && !migrated.revenueSale) {
+    migrated.revenueSale = migrated.revenue;
+    migrated.revenueRent = {
+      avgRentPerUnitMonthly: null,
+      vacancyPct: null,
+    };
+    delete migrated.revenue;
+  }
+
+  // Remove deprecated interestCoverageFactor
+  if (migrated.financing?.interestCoverageFactor !== undefined) {
+    delete migrated.financing.interestCoverageFactor;
+  }
+
+  // Add missing meta
+  if (!migrated.meta) {
+    migrated.meta = {
+      assetType: 'TOWNHOME',
+      monetization: 'FOR_SALE',
+    };
+  }
+
+  // Add missing absorption
+  if (!migrated.absorption) {
+    migrated.absorption = {
+      unitsPerMonth: 4,
+    };
+  }
+
+  // Add missing program.netToGrossPct
+  if (migrated.program && migrated.program.netToGrossPct === undefined) {
+    migrated.program.netToGrossPct = 80;
+  }
+
+  // Ensure timeline structure exists
+  if (!migrated.timeline) {
+    migrated.timeline = defaultAssumptions.timeline;
+  }
+
+  // Ensure autoCalcSalesMonths exists
+  if (migrated.timeline && migrated.timeline.autoCalcSalesMonths === undefined) {
+    migrated.timeline.autoCalcSalesMonths = true;
+  }
+
+  return migrated as ProFormaAssumptions;
+}
+
+/**
  * Get pro forma assumptions for a project.
  * Returns null if no pro forma exists.
+ * Applies migration to handle legacy data formats.
  */
 export async function getProForma(
   projectId: string
 ): Promise<ProFormaAssumptions | null> {
   // Use mock layer
   const row = await getMockProForma(projectId);
-  return row?.assumptions ?? null;
+
+  if (!row?.assumptions) {
+    return null;
+  }
+
+  // Apply migration to handle legacy data
+  return migrateLegacyAssumptions(row.assumptions);
 
   /* Future Supabase implementation:
   const { data, error } = await supabase
@@ -25,7 +105,7 @@ export async function getProForma(
     .single();
 
   if (error || !data) return null;
-  return data.assumptions as ProFormaAssumptions;
+  return migrateLegacyAssumptions(data.assumptions);
   */
 }
 

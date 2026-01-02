@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useTransition } from "react";
+import { useMemo, useTransition, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ProFormaAssumptions } from "@/lib/proforma/types";
@@ -42,11 +42,34 @@ export function ProFormaClient({
     defaultValues: initialAssumptions ?? defaultAssumptions,
   });
 
-  const { handleSubmit, reset, watch, formState } = form;
+  const { handleSubmit, reset, watch, formState, setValue } = form;
   const { isDirty } = formState;
 
   // Watch all form values for live calculations
   const currentAssumptions = watch();
+
+  // Auto-calculate sales months when enabled
+  useEffect(() => {
+    const autoCalcSalesMonths = currentAssumptions.timeline?.autoCalcSalesMonths;
+    const units = currentAssumptions.program?.units;
+    const unitsPerMonth = currentAssumptions.absorption?.unitsPerMonth;
+
+    if (autoCalcSalesMonths && units !== null && units > 0 && unitsPerMonth !== null && unitsPerMonth > 0) {
+      const computed = Math.ceil(units / unitsPerMonth);
+      const currentSalesMonths = currentAssumptions.timeline?.phases?.salesLeaseMonths;
+
+      // Only update if the computed value differs from current value
+      if (currentSalesMonths !== computed) {
+        setValue("timeline.phases.salesLeaseMonths", computed, { shouldDirty: true });
+      }
+    }
+  }, [
+    currentAssumptions.timeline?.autoCalcSalesMonths,
+    currentAssumptions.program?.units,
+    currentAssumptions.absorption?.unitsPerMonth,
+    currentAssumptions.timeline?.phases?.salesLeaseMonths,
+    setValue,
+  ]);
 
   // Compute base outputs (no scenario)
   const baseOutputs = useMemo(() => {

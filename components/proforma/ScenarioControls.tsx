@@ -113,7 +113,7 @@ export function ScenarioControls({ form }: ScenarioControlsProps) {
         {/* Duration Delta */}
         <div>
           <div className="flex items-center justify-between mb-1">
-            <Label htmlFor="scenario-duration">Duration Delta</Label>
+            <Label htmlFor="scenario-duration">Total Duration Delta (months)</Label>
             <span className="text-sm font-medium">
               {deltaTotalMonths > 0 ? "+" : ""}
               {deltaTotalMonths} months

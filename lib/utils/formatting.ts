@@ -75,3 +75,29 @@ export function formatPercentDelta(
 
   return `${sign}${value.toFixed(decimals)}pp`;
 }
+
+/**
+ * Format phase type for display.
+ * Converts internal phase names to user-friendly labels.
+ */
+export function formatPhase(phase: string): string {
+  const map: Record<string, string> = {
+    ENTITLEMENT: "Entitlement",
+    CONSTRUCTION: "Construction",
+    SALES_LEASE: "Sales",
+  };
+  return map[phase] || phase;
+}
+
+/**
+ * Get Tailwind CSS classes for phase badge color.
+ * Returns background and text color classes for phase badges.
+ */
+export function getPhaseColor(phase: string): string {
+  const map: Record<string, string> = {
+    ENTITLEMENT: "bg-blue-100 text-blue-700",
+    CONSTRUCTION: "bg-orange-100 text-orange-700",
+    SALES_LEASE: "bg-green-100 text-green-700",
+  };
+  return map[phase] || "bg-gray-100 text-gray-700";
+}
